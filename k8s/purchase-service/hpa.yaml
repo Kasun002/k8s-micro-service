@@ -1,0 +1,54 @@
+# ────────────────────────────────────────────────────────────────
+# Horizontal Pod Autoscaler
+# Requires metrics-server. Install on Docker Desktop:
+#   kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+#
+# Then patch it for Docker Desktop (insecure TLS):
+#   kubectl patch deployment metrics-server -n kube-system \
+#     --type=json \
+#     -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+# ────────────────────────────────────────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: purchase-service-hpa
+  namespace: message-queue
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: purchase-service
+
+  minReplicas: 3 # never go below 3 pods
+  maxReplicas: 6 # scale up to 6 pods under load
+
+  metrics:
+    # Scale up when average CPU across pods exceeds 60%
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+
+    # Scale up when average memory across pods exceeds 400Mi
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: AverageValue
+          averageValue: 400Mi
+
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60 # wait 60s before scaling up
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60 # add at most 1 pod per minute
+    scaleDown:
+      stabilizationWindowSeconds: 300 # wait 5 min before scaling down
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120 # remove at most 1 pod per 2 min

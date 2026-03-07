@@ -1,24 +1,29 @@
 /** @type {import('next').NextConfig} */
+const CART_URL     = process.env.CART_SERVICE_URL     || 'http://localhost:3001';
+const PURCHASE_URL = process.env.PURCHASE_SERVICE_URL || 'http://localhost:3002';
+const PRODUCT_URL  = process.env.PRODUCT_SERVICE_URL  || 'http://localhost:3003';
+
 const nextConfig = {
+  output: 'standalone',
+
   async rewrites() {
     return [
-      // Cart Service — :3001
-      { source: '/api/cart', destination: 'http://localhost:3001/cart' },
-      { source: '/api/cart/:path*', destination: 'http://localhost:3001/cart/:path*' },
+      // Cart Service
+      { source: '/api/cart',        destination: `${CART_URL}/cart` },
+      { source: '/api/cart/:path*', destination: `${CART_URL}/cart/:path*` },
 
-      // Purchase Service — :3002
-      { source: '/api/purchases', destination: 'http://localhost:3002/purchases' },
-      { source: '/api/purchases/:path*', destination: 'http://localhost:3002/purchases/:path*' },
+      // Purchase Service
+      { source: '/api/purchases',           destination: `${PURCHASE_URL}/purchases` },
+      { source: '/api/purchases/:path*',    destination: `${PURCHASE_URL}/purchases/:path*` },
+      { source: '/api/purchases/:id/confirm', destination: `${PURCHASE_URL}/purchases/:id/confirm` },
 
-      // Product Service — :3003
-      { source: '/api/products', destination: 'http://localhost:3003/products' },
-      { source: '/api/products/:path*', destination: 'http://localhost:3003/products/:path*' },
+      // Product Service
+      { source: '/api/products',        destination: `${PRODUCT_URL}/products` },
+      { source: '/api/products/:path*', destination: `${PRODUCT_URL}/products/:path*` },
 
-      // Purchase confirm
-      { source: '/api/purchases/:id/confirm', destination: 'http://localhost:3002/purchases/:id/confirm' },
-
-      // Admin — purchase-service :3002
-      { source: '/api/admin/queue', destination: 'http://localhost:3002/admin/queue' },
+      // Reports & Admin — purchase-service
+      { source: '/api/reports/daily', destination: `${PURCHASE_URL}/reports/daily` },
+      { source: '/api/admin/queue',   destination: `${PURCHASE_URL}/admin/queue` },
     ];
   },
 };

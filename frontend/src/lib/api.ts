@@ -1,4 +1,4 @@
-import { AddCartItemDto, CartItem, Product, Purchase, QueueStats } from '@/types';
+import { AddCartItemDto, CartItem, DailySalesReport, Product, Purchase, QueueStats } from '@/types';
 
 const CART_BASE = '/api/cart';
 const PURCHASES_BASE = '/api/purchases';
@@ -59,6 +59,13 @@ export const adminApi = {
   getQueueStats: async (): Promise<QueueStats> => {
     const res = await fetch('/api/admin/queue');
     if (!res.ok) throw new Error('Failed to fetch queue stats');
+    return res.json();
+  },
+
+  getDailyReport: async (date?: string): Promise<DailySalesReport> => {
+    const url = date ? `/api/reports/daily?date=${date}` : '/api/reports/daily';
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Failed to fetch daily report');
     return res.json();
   },
 };

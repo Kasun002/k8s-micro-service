@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: purchase-service-config
+  namespace: message-queue
+data:
+  # ── Database ────────────────────────────────────────────────────
+  # host.docker.internal reaches Docker Desktop host services (PostgreSQL, LocalStack)
+  DB_HOST: 'host.docker.internal'
+  DB_PORT: '5432'
+  DB_NAME: 'purchase_db'
+
+  # ── SQS / LocalStack ────────────────────────────────────────────
+  SQS_REGION: 'us-east-1'
+  SQS_ENDPOINT: 'http://host.docker.internal:4566'
+  SQS_QUEUE_URL: 'http://host.docker.internal:4566/000000000000/order-created'
+
+  # ── Inter-service ───────────────────────────────────────────────
+  # Product service runs in K8s — reach via K8s DNS (same namespace)
+  PRODUCT_SERVICE_URL: 'http://product-service:3003'
+
+  # ── App ─────────────────────────────────────────────────────────
+  PORT: '3002'
+  NODE_ENV: 'production'
