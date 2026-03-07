@@ -29,6 +29,8 @@ A full-stack microservices demo using NestJS (Fastify), PostgreSQL, AWS SQS via 
 
 ---
 
+![alt text](image.png)
+
 ## System Diagrams
 
 ### Architecture Overview
@@ -223,13 +225,14 @@ flowchart LR
 
 ### Purchase Service — :3002
 
-| Method | Endpoint                  | Description                                   |
-| ------ | ------------------------- | --------------------------------------------- |
-| GET    | `/purchases`              | List all purchases                            |
-| GET    | `/purchases/user/:userId` | Purchases for a specific user                 |
-| GET    | `/purchases/:id`          | Single purchase by ID                         |
-| PATCH  | `/purchases/:id/confirm`  | Confirm a pending purchase (Cash on Delivery) |
-| GET    | `/admin/queue`            | SQS queue stats + purchase counts             |
+| Method | Endpoint                  | Description                                      |
+| ------ | ------------------------- | ------------------------------------------------ |
+| GET    | `/purchases`              | List all purchases                               |
+| GET    | `/purchases/user/:userId` | Purchases for a specific user                    |
+| GET    | `/purchases/:id`          | Single purchase by ID                            |
+| PATCH  | `/purchases/:id/confirm`  | Confirm a pending purchase (Cash on Delivery)    |
+| GET    | `/admin/queue`            | SQS queue stats + purchase counts                |
+| GET    | `/reports/daily`          | Daily sales report (optional `?date=YYYY-MM-DD`) |
 
 ### Product Service — :3003
 

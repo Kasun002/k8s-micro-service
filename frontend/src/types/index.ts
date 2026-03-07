@@ -41,6 +41,22 @@ export interface AddCartItemDto {
   price: number;
 }
 
+export interface TopProduct {
+  sku: string;
+  quantitySold: number;
+  revenue: number;
+}
+
+export interface DailySalesReport {
+  date: string;
+  totalOrders: number;
+  totalRevenue: number;
+  confirmedOrders: number;
+  pendingOrders: number;
+  uniqueCustomers: number;
+  topProducts: TopProduct[];
+}
+
 export interface QueueStats {
   queue: {
     name: string;

@@ -17,6 +17,9 @@ const nextConfig = {
       // Purchase confirm
       { source: '/api/purchases/:id/confirm', destination: 'http://localhost:3002/purchases/:id/confirm' },
 
+      // Reports — purchase-service :3002
+      { source: '/api/reports/daily', destination: 'http://localhost:3002/reports/daily' },
+
       // Admin — purchase-service :3002
       { source: '/api/admin/queue', destination: 'http://localhost:3002/admin/queue' },
     ];
