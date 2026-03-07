@@ -18,6 +18,10 @@ export const fetchPurchases = createAsyncThunk('purchases/fetchByUser', async (u
   return purchasesApi.getByUser(userId);
 });
 
+export const confirmPurchase = createAsyncThunk('purchases/confirm', async (id: string) => {
+  return purchasesApi.confirm(id);
+});
+
 const purchaseSlice = createSlice({
   name: 'purchases',
   initialState,
@@ -39,6 +43,11 @@ const purchaseSlice = createSlice({
       .addCase(fetchPurchases.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message ?? 'Failed to fetch purchases';
+      })
+
+      .addCase(confirmPurchase.fulfilled, (state, action) => {
+        const idx = state.items.findIndex((p) => p.id === action.payload.id);
+        if (idx !== -1) state.items[idx] = action.payload;
       });
   },
 });

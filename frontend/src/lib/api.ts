@@ -1,4 +1,4 @@
-import { AddCartItemDto, CartItem, Product, Purchase } from '@/types';
+import { AddCartItemDto, CartItem, Product, Purchase, QueueStats } from '@/types';
 
 const CART_BASE = '/api/cart';
 const PURCHASES_BASE = '/api/purchases';
@@ -45,6 +45,20 @@ export const purchasesApi = {
   getByUser: async (userId: string): Promise<Purchase[]> => {
     const res = await fetch(`${PURCHASES_BASE}/user/${userId}`);
     if (!res.ok) throw new Error('Failed to fetch purchases');
+    return res.json();
+  },
+
+  confirm: async (id: string): Promise<Purchase> => {
+    const res = await fetch(`${PURCHASES_BASE}/${id}/confirm`, { method: 'PATCH' });
+    if (!res.ok) throw new Error('Failed to confirm purchase');
+    return res.json();
+  },
+};
+
+export const adminApi = {
+  getQueueStats: async (): Promise<QueueStats> => {
+    const res = await fetch('/api/admin/queue');
+    if (!res.ok) throw new Error('Failed to fetch queue stats');
     return res.json();
   },
 };

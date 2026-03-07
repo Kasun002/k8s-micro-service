@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PurchaseModule } from './purchase/purchase.module';
 import { SqsModule } from './sqs/sqs.module';
+import { AdminModule } from './admin/admin.module';
 import { Purchase } from './purchase/purchase.entity';
 import { Migration1772848724527 } from './migrations/1772848724527-migration';
 
@@ -32,6 +33,7 @@ import { Migration1772848724527 } from './migrations/1772848724527-migration';
     }),
     PurchaseModule,
     SqsModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

@@ -51,9 +51,11 @@ export class CartService {
         price: Number(i.price),
       })),
       total: Number(total.toFixed(2)),
+      paymentMethod: 'cod',
     };
 
     await this.sqsService.sendMessage(payload);
+    await this.cartRepository.delete({ user_id: userId });
 
     return { message: 'Checkout initiated' };
   }
