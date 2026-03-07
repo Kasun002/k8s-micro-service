@@ -1,5 +1,5 @@
 #!/bin/bash
-# Deploy all 3 microservices to Docker Desktop Kubernetes
+# Deploy all 4 services (cart, purchase, product, frontend) to Docker Desktop Kubernetes
 # Run from project root: bash k8s/deploy-all.sh
 set -e
 

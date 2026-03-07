@@ -784,6 +784,7 @@ This builds all four Docker images locally, applies all manifests, and waits for
 bash k8s/cart-service/deploy.sh
 bash k8s/purchase-service/deploy.sh
 bash k8s/product-service/deploy.sh
+bash k8s/frontend/deploy.sh
 ```
 
 ### Endpoints After Deploy

@@ -16,8 +16,8 @@ data:
   SQS_QUEUE_URL: 'http://host.docker.internal:4566/000000000000/order-created'
 
   # ── Inter-service ───────────────────────────────────────────────
-  # Product service runs locally — reach it via host
-  PRODUCT_SERVICE_URL: 'http://host.docker.internal:3003'
+  # Product service runs in K8s — reach via K8s DNS (same namespace)
+  PRODUCT_SERVICE_URL: 'http://product-service:3003'
 
   # ── App ─────────────────────────────────────────────────────────
   PORT: '3002'
