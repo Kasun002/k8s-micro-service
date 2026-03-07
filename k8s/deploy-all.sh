@@ -14,54 +14,66 @@ echo "── Step 1: Switch context ──────────────�
 kubectl config use-context docker-desktop
 
 echo ""
-echo "── Step 2: Build Docker images ──────────"
-docker build -t cart-service:latest     "$ROOT/cart-service"
-docker build -t purchase-service:latest "$ROOT/purchase-service"
-docker build -t product-service:latest  "$ROOT/product-service"
-docker build -t frontend:latest         "$ROOT/frontend"
+echo "── Step 2: Clean existing deployment ────"
+if kubectl get namespace message-queue &>/dev/null; then
+  echo "Deleting namespace message-queue..."
+  kubectl delete namespace message-queue
+  echo "Waiting for namespace to be fully removed..."
+  kubectl wait --for=delete namespace/message-queue --timeout=60s 2>/dev/null || true
+  echo "Namespace removed."
+else
+  echo "Namespace message-queue does not exist, skipping cleanup."
+fi
+
+echo ""
+echo "── Step 3: Build Docker images ──────────"
+docker build --no-cache -t cart-service:latest     "$ROOT/cart-service"
+docker build --no-cache -t purchase-service:latest "$ROOT/purchase-service"
+docker build --no-cache -t product-service:latest  "$ROOT/product-service"
+docker build --no-cache -t frontend:latest         "$ROOT/frontend"
 echo "All images built."
 
 echo ""
-echo "── Step 3: Apply namespace ──────────────"
+echo "── Step 4: Apply namespace ──────────────"
 kubectl apply -f "$ROOT/k8s/cart-service/namespace.yaml"
 
 echo ""
-echo "── Step 4: Apply ConfigMaps ─────────────"
+echo "── Step 5: Apply ConfigMaps ─────────────"
 kubectl apply -f "$ROOT/k8s/cart-service/configmap.yaml"
 kubectl apply -f "$ROOT/k8s/purchase-service/configmap.yaml"
 kubectl apply -f "$ROOT/k8s/product-service/configmap.yaml"
 kubectl apply -f "$ROOT/k8s/frontend/configmap.yaml"
 
 echo ""
-echo "── Step 5: Apply Secrets ────────────────"
+echo "── Step 6: Apply Secrets ────────────────"
 kubectl apply -f "$ROOT/k8s/cart-service/secret.yaml"
 kubectl apply -f "$ROOT/k8s/purchase-service/secret.yaml"
 kubectl apply -f "$ROOT/k8s/product-service/secret.yaml"
 # frontend has no secrets
 
 echo ""
-echo "── Step 6: Apply Deployments ────────────"
+echo "── Step 7: Apply Deployments ────────────"
 kubectl apply -f "$ROOT/k8s/cart-service/deployment.yaml"
 kubectl apply -f "$ROOT/k8s/purchase-service/deployment.yaml"
 kubectl apply -f "$ROOT/k8s/product-service/deployment.yaml"
 kubectl apply -f "$ROOT/k8s/frontend/deployment.yaml"
 
 echo ""
-echo "── Step 7: Apply Services ───────────────"
+echo "── Step 8: Apply Services ───────────────"
 kubectl apply -f "$ROOT/k8s/cart-service/service.yaml"
 kubectl apply -f "$ROOT/k8s/purchase-service/service.yaml"
 kubectl apply -f "$ROOT/k8s/product-service/service.yaml"
 kubectl apply -f "$ROOT/k8s/frontend/service.yaml"
 
 echo ""
-echo "── Step 8: Apply HPAs ───────────────────"
+echo "── Step 9: Apply HPAs ───────────────────"
 kubectl apply -f "$ROOT/k8s/cart-service/hpa.yaml"
 kubectl apply -f "$ROOT/k8s/purchase-service/hpa.yaml"
 kubectl apply -f "$ROOT/k8s/product-service/hpa.yaml"
 kubectl apply -f "$ROOT/k8s/frontend/hpa.yaml"
 
 echo ""
-echo "── Step 9: Wait for rollouts ────────────"
+echo "── Step 10: Wait for rollouts ───────────"
 kubectl rollout status deployment/cart-service     -n message-queue --timeout=120s
 kubectl rollout status deployment/purchase-service -n message-queue --timeout=120s
 kubectl rollout status deployment/product-service  -n message-queue --timeout=120s

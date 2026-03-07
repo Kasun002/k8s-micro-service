@@ -29,6 +29,8 @@ A full-stack microservices demo using NestJS (Fastify), PostgreSQL, AWS SQS via 
 
 ---
 
+<video controls src="Screen Recording 2026-03-07 at 5.42.14 PM.mov" title="Title"></video>
+
 ![alt text](image.png)
 
 ## System Diagrams
