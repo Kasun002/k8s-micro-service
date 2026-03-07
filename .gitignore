@@ -1,0 +1,57 @@
+# ─── Dependencies ────────────────────────────────────────────────
+**/node_modules/
+**/.pnp
+**/.pnp.js
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# ─── NestJS build output ─────────────────────────────────────────
+**/dist/
+
+# ─── TypeScript incremental cache ────────────────────────────────
+**/*.tsbuildinfo
+
+# ─── Next.js ─────────────────────────────────────────────────────
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts
+
+# ─── Environment variables ───────────────────────────────────────
+**/.env
+**/.env.*
+!**/.env.example
+
+# ─── Logs ────────────────────────────────────────────────────────
+**/logs/
+**/*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ─── Test & coverage ─────────────────────────────────────────────
+**/coverage/
+**/.nyc_output/
+**/junit.xml
+
+# ─── TypeORM ─────────────────────────────────────────────────────
+**/ormconfig.js
+**/ormconfig.json
+
+# ─── Docker local overrides ──────────────────────────────────────
+docker-compose.override.yml
+
+# ─── OS files ────────────────────────────────────────────────────
+.DS_Store
+**/.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Editor / IDE ────────────────────────────────────────────────
+.idea/
+.vscode/
+*.suo
+*.sw?
+
+PLAN.md

@@ -1,0 +1,42 @@
+{
+  "name": "purchase-service",
+  "version": "1.0.0",
+  "description": "Purchase microservice",
+  "author": "",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "nest build",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:debug": "nest start --debug --watch",
+    "start:prod": "node dist/main",
+    "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js --dataSource src/data-source.ts",
+    "typeorm:generate-migration": "npm run typeorm -- migration:generate src/migrations/migration",
+    "typeorm:run-migrations": "npm run typeorm -- migration:run",
+    "typeorm:revert-migration": "npm run typeorm -- migration:revert",
+    "lint": "eslint 'src/**/*.ts'",
+    "lint:fix": "eslint --fix 'src/**/*.ts'"
+  },
+  "dependencies": {
+    "@nestjs/common": "^10.0.0",
+    "@nestjs/config": "^3.0.0",
+    "@nestjs/core": "^10.0.0",
+    "@nestjs/platform-fastify": "^10.0.0",
+    "@nestjs/typeorm": "^10.0.0",
+    "@aws-sdk/client-sqs": "^3.0.0",
+    "typeorm": "^0.3.0",
+    "pg": "^8.0.0",
+    "reflect-metadata": "^0.1.13",
+    "rxjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^10.0.0",
+    "@nestjs/schematics": "^10.0.0",
+    "@types/node": "^20.0.0",
+    "@types/pg": "^8.0.0",
+    "ts-node": "^10.0.0",
+    "tsconfig-paths": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}
