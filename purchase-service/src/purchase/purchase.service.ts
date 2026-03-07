@@ -14,13 +14,20 @@ export class PurchaseService {
     userId: string;
     items: Array<{ productId: string; quantity: number; price: number }>;
     total: number;
+    paymentMethod?: string;
   }): Promise<Purchase> {
     const purchase = this.purchaseRepository.create({
       user_id: payload.userId,
       items: payload.items,
       total: payload.total,
-      status: 'pending',
+      status: payload.paymentMethod === 'cod' ? 'confirmed' : 'pending',
     });
+    return this.purchaseRepository.save(purchase);
+  }
+
+  async confirmPurchase(id: string): Promise<Purchase> {
+    const purchase = await this.findById(id);
+    purchase.status = 'confirmed';
     return this.purchaseRepository.save(purchase);
   }
 

@@ -33,6 +33,14 @@ export const checkout = createAsyncThunk('cart/checkout', async (userId: string)
   return cartApi.checkout(userId);
 });
 
+export const buyNow = createAsyncThunk(
+  'cart/buyNow',
+  async ({ dto, userId }: { dto: AddCartItemDto; userId: string }) => {
+    await cartApi.addItem(dto);
+    return cartApi.checkout(userId);
+  },
+);
+
 const cartSlice = createSlice({
   name: 'cart',
   initialState,
@@ -83,11 +91,25 @@ const cartSlice = createSlice({
       .addCase(checkout.fulfilled, (state) => {
         state.loading = false;
         state.items = [];
-        state.checkoutMessage = 'Checkout initiated! Purchase will appear in ~5 seconds.';
+        state.checkoutMessage = 'Order placed! Cash on Delivery. Purchase will appear in ~5 seconds.';
       })
       .addCase(checkout.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message ?? 'Checkout failed';
+      })
+
+      .addCase(buyNow.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(buyNow.fulfilled, (state) => {
+        state.loading = false;
+        state.items = [];
+        state.checkoutMessage = 'Order placed! Cash on Delivery. Purchase will appear in ~5 seconds.';
+      })
+      .addCase(buyNow.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message ?? 'Purchase failed';
       });
   },
 });

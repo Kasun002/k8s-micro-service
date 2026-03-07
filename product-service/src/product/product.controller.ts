@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Query, Body } from '@nestjs/common';
 import { ProductService } from './product.service';
 
 @Controller('products')
@@ -14,5 +14,10 @@ export class ProductController {
   @Get(':id')
   findById(@Param('id') id: string) {
     return this.productService.findById(id);
+  }
+
+  @Patch(':sku/deduct-stock')
+  deductStock(@Param('sku') sku: string, @Body('quantity') quantity: number) {
+    return this.productService.deductStock(sku, quantity);
   }
 }

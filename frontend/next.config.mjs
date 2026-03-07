@@ -13,6 +13,12 @@ const nextConfig = {
       // Product Service — :3003
       { source: '/api/products', destination: 'http://localhost:3003/products' },
       { source: '/api/products/:path*', destination: 'http://localhost:3003/products/:path*' },
+
+      // Purchase confirm
+      { source: '/api/purchases/:id/confirm', destination: 'http://localhost:3002/purchases/:id/confirm' },
+
+      // Admin — purchase-service :3002
+      { source: '/api/admin/queue', destination: 'http://localhost:3002/admin/queue' },
     ];
   },
 };

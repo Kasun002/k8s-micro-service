@@ -40,3 +40,18 @@ export interface AddCartItemDto {
   quantity: number;
   price: number;
 }
+
+export interface QueueStats {
+  queue: {
+    name: string;
+    url: string;
+    messagesAvailable: number;
+    messagesInFlight: number;
+    messagesDelayed: number;
+  };
+  purchases: {
+    total: number;
+    pending: number;
+    confirmed: number;
+  };
+}

@@ -144,7 +144,7 @@ export default function CartList() {
               />
             </svg>
             <p className="text-sm font-medium text-gray-400">Cart is empty</p>
-            <p className="text-xs text-gray-300 mt-1">Add items using the form</p>
+            <p className="text-xs text-gray-300 mt-1">Browse products to add items</p>
           </div>
         ) : (
           items.map((item) => <CartItemCard key={item.id} item={item} />)
@@ -192,7 +192,7 @@ export default function CartList() {
                     d="M5 13l4 4L19 7"
                   />
                 </svg>
-                Checkout → Send to SQS
+                Complete Order — Cash on Delivery
               </>
             )}
           </button>

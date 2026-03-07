@@ -3,7 +3,7 @@
 A full-stack microservices demo using NestJS (Fastify), PostgreSQL, AWS SQS via LocalStack, and a Next.js frontend.
 
 ```
-[Frontend :3000]
+[Frontend :3004]
       │
       ├──► Product Service :3003 ──► product_db
       ├──► Cart Service    :3001 ──► cart_db ──► SQS (order-created)
@@ -17,15 +17,226 @@ A full-stack microservices demo using NestJS (Fastify), PostgreSQL, AWS SQS via 
 
 ## Services
 
-| Service          | Port | Database    | Role                                |
-| ---------------- | ---- | ----------- | ----------------------------------- |
-| cart-service     | 3001 | cart_db     | Manages cart, publishes SQS msg     |
-| purchase-service | 3002 | purchase_db | Polls SQS, creates purchase records |
-| product-service  | 3003 | product_db  | Product catalog with auto-seed      |
-| frontend         | 3000 | —           | Next.js + Redux Toolkit UI          |
-| PostgreSQL       | 5432 | —           | Shared DB host (3 databases)        |
-| LocalStack       | 4566 | —           | AWS SQS locally                     |
-| pgAdmin          | 5050 | —           | DB admin UI                         |
+| Service          | Port | Database    | Role                                            |
+| ---------------- | ---- | ----------- | ----------------------------------------------- |
+| cart-service     | 3001 | cart_db     | Manages cart, publishes SQS msg, clears cart    |
+| purchase-service | 3002 | purchase_db | Polls SQS, creates purchases, exposes admin API |
+| product-service  | 3003 | product_db  | Product catalog with auto-seed (15 products)    |
+| frontend         | 3004 | —           | Next.js + Redux Toolkit UI                      |
+| PostgreSQL       | 5432 | —           | Shared DB host (3 databases)                    |
+| LocalStack       | 4566 | —           | AWS SQS locally                                 |
+| pgAdmin          | 5050 | —           | DB admin UI                                     |
+
+---
+
+## System Diagrams
+
+### Architecture Overview
+
+```mermaid
+graph TB
+    subgraph Browser
+        FE["Frontend<br/>Next.js 14 · :3004"]
+    end
+
+    subgraph Services
+        CS["Cart Service<br/>NestJS · :3001"]
+        PUS["Purchase Service<br/>NestJS · :3002"]
+        PRS["Product Service<br/>NestJS · :3003"]
+    end
+
+    subgraph Queue["Message Bus"]
+        SQS["SQS Queue<br/>order-created<br/>(LocalStack :4566)"]
+    end
+
+    subgraph Databases["PostgreSQL :5432"]
+        CDB[(cart_db)]
+        PUDB[(purchase_db)]
+        PRDB[(product_db)]
+    end
+
+    FE -- "POST /cart<br/>POST /cart/checkout/:userId<br/>DELETE /cart/:id" --> CS
+    FE -- "GET /purchases/user/:userId<br/>PATCH /purchases/:id/confirm<br/>GET /admin/queue" --> PUS
+    FE -- "GET /products" --> PRS
+
+    CS -- "SendMessage<br/>{ items, total, paymentMethod }" --> SQS
+    CS --- CDB
+
+    SQS -- "ReceiveMessage<br/>(polls every 5s)" --> PUS
+    PUS --- PUDB
+    PUS -- "PATCH /products/:sku/deduct-stock" --> PRS
+    PRS --- PRDB
+```
+
+---
+
+### Full Order Flow — Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant FE as Frontend :3004
+    participant CS as Cart Service :3001
+    participant SQS as SQS Queue (LocalStack)
+    participant PUS as Purchase Service :3002
+    participant PRS as Product Service :3003
+
+    User->>FE: Open app (Products page)
+    FE->>PRS: GET /products
+    PRS-->>FE: 15 products with stock counts
+
+    alt Path A — Add to Cart then Checkout
+        User->>FE: Click "Add to Cart"
+        FE->>CS: POST /cart { userId, productId, quantity, price }
+        CS-->>FE: CartItem saved
+        Note over FE: Cart badge increments
+        User->>FE: Navigate to Cart page
+        User->>FE: Click "Complete Order — Cash on Delivery"
+        FE->>CS: POST /cart/checkout/:userId
+    else Path B — Buy Now (skip cart)
+        User->>FE: Click "Buy Now"
+        FE->>CS: POST /cart { userId, productId, quantity, price }
+        FE->>CS: POST /cart/checkout/:userId
+    end
+
+    CS->>SQS: SendMessage<br/>{ userId, items, total, paymentMethod: "cod" }
+    CS->>CS: DELETE cart items for userId
+    CS-->>FE: { message: "Checkout initiated" }
+    Note over FE: Cart cleared, redirect to Purchases
+
+    loop Every 5 seconds
+        PUS->>SQS: ReceiveMessage (up to 10)
+        SQS-->>PUS: Order message(s)
+        PUS->>PUS: Create Purchase<br/>status = "confirmed" (COD)
+        loop Per item in order
+            PUS->>PRS: PATCH /products/:sku/deduct-stock<br/>{ quantity }
+            PRS->>PRS: UPDATE stock = stock − qty (atomic)
+            PRS-->>PUS: 200 OK
+        end
+        PUS->>SQS: DeleteMessage
+    end
+
+    User->>FE: Navigate to Purchases
+    FE->>PUS: GET /purchases/user/:userId
+    PUS-->>FE: Purchase list (status: confirmed)
+
+    opt Manually confirm a pending order
+        User->>FE: Click "Complete — Cash on Delivery" on pending card
+        FE->>PUS: PATCH /purchases/:id/confirm
+        PUS->>PUS: UPDATE status = "confirmed"
+        PUS-->>FE: Updated purchase
+        Note over FE: Card updates in-place (no full reload)
+    end
+
+    opt View Queue Monitor
+        User->>FE: Navigate to /admin
+        FE->>PUS: GET /admin/queue (every 3s)
+        PUS->>SQS: GetQueueAttributes
+        SQS-->>PUS: messagesAvailable / inFlight / delayed
+        PUS->>PUS: COUNT purchases by status
+        PUS-->>FE: Queue + purchase stats
+    end
+```
+
+---
+
+### Purchase Status Flow
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> pending : SQS consumed<br/>(no paymentMethod)
+    [*] --> confirmed : SQS consumed<br/>(paymentMethod = "cod")
+    pending --> confirmed : PATCH /purchases/:id/confirm<br/>"Complete — Cash on Delivery" button
+    confirmed --> [*] : Order complete
+```
+
+---
+
+### Stock Deduction Flow
+
+```mermaid
+flowchart LR
+    A([User places order]) --> B[Cart Service\npublishes SQS message]
+    B --> C[Cart cleared in DB]
+    B --> D[SQS: order-created]
+    D --> E{Purchase Service\npolls every 5s}
+    E --> F[Create Purchase record\nstatus: confirmed]
+    F --> G{For each item}
+    G --> H["PATCH /products/:sku/deduct-stock\nUPDATE stock = stock − qty"]
+    H --> I[(product_db\nstock updated)]
+    G --> G
+    F --> J[Delete SQS message]
+    I --> K([Product page shows\nupdated stock on next load])
+```
+
+---
+
+## Application Pages
+
+| Page            | URL                             | Description                                          |
+| --------------- | ------------------------------- | ---------------------------------------------------- |
+| Product Listing | http://localhost:3004/          | Browse products, Add to Cart or Buy Now (COD)        |
+| Shopping Cart   | http://localhost:3004/cart      | Review cart items, Complete Order — Cash on Delivery |
+| Purchases       | http://localhost:3004/purchases | View orders, confirm pending orders with COD         |
+| Queue Monitor   | http://localhost:3004/admin     | Live SQS queue stats — refreshes every 3s            |
+
+---
+
+## Order Flow
+
+```
+1. Browse Products (/)
+        │
+        ├── Add to Cart ──► Cart page ──► "Complete Order — Cash on Delivery"
+        │                                        │
+        └── Buy Now ──────────────────────────────┘
+                                                 │
+                              Cart Service publishes to SQS
+                              (paymentMethod: 'cod', cart cleared immediately)
+                                                 │
+                              Purchase Service polls SQS every 5s
+                              Creates purchase record as status: confirmed
+                                                 │
+                              Purchases page shows confirmed order
+```
+
+**Payment status:**
+
+| Trigger                                       | Resulting status |
+| --------------------------------------------- | ---------------- |
+| Checkout / Buy Now (Cash on Delivery)         | `confirmed`      |
+| Pending order → "Complete — Cash on Delivery" | `confirmed`      |
+
+---
+
+## API Reference
+
+### Cart Service — :3001
+
+| Method | Endpoint                 | Description                              |
+| ------ | ------------------------ | ---------------------------------------- |
+| POST   | `/cart`                  | Add item to cart                         |
+| GET    | `/cart/:userId`          | Get cart items for a user                |
+| DELETE | `/cart/:id`              | Remove a single cart item                |
+| POST   | `/cart/checkout/:userId` | Checkout — publishes to SQS, clears cart |
+
+### Purchase Service — :3002
+
+| Method | Endpoint                  | Description                                   |
+| ------ | ------------------------- | --------------------------------------------- |
+| GET    | `/purchases`              | List all purchases                            |
+| GET    | `/purchases/user/:userId` | Purchases for a specific user                 |
+| GET    | `/purchases/:id`          | Single purchase by ID                         |
+| PATCH  | `/purchases/:id/confirm`  | Confirm a pending purchase (Cash on Delivery) |
+| GET    | `/admin/queue`            | SQS queue stats + purchase counts             |
+
+### Product Service — :3003
+
+| Method | Endpoint        | Description                                 |
+| ------ | --------------- | ------------------------------------------- |
+| GET    | `/products`     | All products (optional `?category=` filter) |
+| GET    | `/products/:id` | Single product by ID                        |
 
 ---
 
@@ -217,7 +428,7 @@ npm run start:dev
 
 > The Product Service automatically seeds **15 products** on first startup using `INSERT ... ON CONFLICT DO NOTHING` — safe to restart without duplicating data.
 
-### Terminal 4 — Frontend (Port 3000)
+### Terminal 4 — Frontend (Port 3004)
 
 ```bash
 cd frontend
@@ -225,7 +436,7 @@ yarn install
 yarn dev
 ```
 
-Open **http://localhost:3000** in your browser.
+Open **http://localhost:3004** in your browser. The landing page is the **Product Listing**.
 
 ---
 
@@ -376,6 +587,18 @@ npm run typeorm:revert-migration
 
 ## Testing the Full Flow
 
+### Via the UI
+
+1. Open **http://localhost:3004** — you land on the Product Listing page
+2. Browse products by category (Electronics, Accessories, Audio, Storage)
+3. Click **Add to Cart** to add items, then go to **Cart** → **Complete Order — Cash on Delivery**
+4. Or click **Buy Now** on any product card to skip the cart and place the order immediately
+5. Navigate to **Purchases** — your order appears within ~5 seconds as `confirmed`
+6. Any orders still showing `pending` can be confirmed using the **Complete — Cash on Delivery** button on the purchase card
+7. Click **Queue Monitor** in the navbar to see live SQS queue depth and purchase stats
+
+### Via curl
+
 ```bash
 # 1. Add items to cart
 curl -X POST http://localhost:3001/cart \
@@ -389,19 +612,25 @@ curl -X POST http://localhost:3001/cart \
 # 2. View cart
 curl http://localhost:3001/cart/user1
 
-# 3. Checkout — publishes message to SQS
+# 3. Checkout — publishes to SQS, clears cart in DB
 curl -X POST http://localhost:3001/cart/checkout/user1
 
 # 4. Wait ~5 seconds (Purchase Service polls SQS every 5s)
 
-# 5. View purchases
+# 5. View purchases (status will be "confirmed" for COD orders)
 curl http://localhost:3002/purchases/user/user1
 
-# 6. View all products
+# 6. Confirm a pending purchase manually
+curl -X PATCH http://localhost:3002/purchases/<purchase-id>/confirm
+
+# 7. View all products
 curl http://localhost:3003/products
 
-# 7. Filter by category
+# 8. Filter by category
 curl "http://localhost:3003/products?category=Electronics"
+
+# 9. Check SQS queue stats
+curl http://localhost:3002/admin/queue
 ```
 
 ---
@@ -422,16 +651,17 @@ message_queue/
 │   └── src/
 │       ├── purchase/           # Entity, Controller, Service, Module
 │       ├── sqs/                # SQS consumer (polls every 5s)
+│       ├── admin/              # Queue stats admin endpoint
 │       └── migrations/
 ├── product-service/            # NestJS · Port 3003
 │   └── src/
 │       ├── product/            # Entity, Controller, Service, Module
 │       ├── seed/               # Auto-seeds 15 products on startup
 │       └── migrations/
-└── frontend/                   # Next.js 14 · Port 3000
+└── frontend/                   # Next.js 14 · Port 3004
     └── src/
-        ├── app/                # App Router pages (cart, purchases)
-        ├── components/         # Navbar, AddItemForm, CartList, PurchaseList
+        ├── app/                # App Router pages (/, /cart, /purchases, /admin)
+        ├── components/         # Navbar, ProductCard, CartList, PurchaseCard
         ├── store/              # Redux Toolkit slices (cart, purchases, user)
         └── lib/                # API client functions
 ```
@@ -496,6 +726,9 @@ docker exec mq_postgres psql -U postgres -c "CREATE DATABASE product_db;"
 
 **Frontend shows "Could not load products"**
 Make sure the Product Service is running on port 3003 before opening the frontend.
+
+**Queue Monitor shows an error**
+Make sure the Purchase Service is running on port 3002.
 
 **Windows — `chmod` not found**
 The `chmod` command in `scripts/init-db.sh` is irrelevant on Windows. Docker Desktop handles script permissions automatically.
