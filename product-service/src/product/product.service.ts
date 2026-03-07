@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './product.entity';
@@ -31,11 +31,20 @@ export class ProductService {
   }
 
   async deductStock(sku: string, quantity: number): Promise<void> {
-    const product = await this.productRepository.findOne({ where: { sku } });
-    if (!product) throw new NotFoundException(`Product ${sku} not found`);
-    if (product.stock < quantity) {
-      throw new BadRequestException(`Insufficient stock for ${sku}: available ${product.stock}`);
+    // Single atomic UPDATE: check + decrement in one SQL statement.
+    // Prevents race conditions — two concurrent orders cannot both pass
+    // the stock check and drive stock negative.
+    const result = await this.productRepository
+      .createQueryBuilder()
+      .update(Product)
+      .set({ stock: () => `stock - ${quantity}` })
+      .where('sku = :sku AND stock >= :quantity', { sku, quantity })
+      .execute();
+
+    if (result.affected === 0) {
+      throw new NotFoundException(
+        `Insufficient stock or product not found for SKU: ${sku}`,
+      );
     }
-    await this.productRepository.decrement({ sku }, 'stock', quantity);
   }
 }

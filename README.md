@@ -145,9 +145,9 @@ sequenceDiagram
 ```mermaid
 stateDiagram-v2
     direction LR
-    [*] --> pending : SQS consumed<br/>(no paymentMethod)
-    [*] --> confirmed : SQS consumed<br/>(paymentMethod = "cod")
-    pending --> confirmed : PATCH /purchases/:id/confirm<br/>"Complete — Cash on Delivery" button
+    [*] --> pending : SQS consumed (no paymentMethod)
+    [*] --> confirmed : SQS consumed (paymentMethod = cod)
+    pending --> confirmed : Click Complete Cash on Delivery
     confirmed --> [*] : Order complete
 ```
 
