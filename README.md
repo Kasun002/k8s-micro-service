@@ -738,14 +738,117 @@ The `chmod` command in `scripts/init-db.sh` is irrelevant on Windows. Docker Des
 
 ---
 
+## Kubernetes (Docker Desktop)
+
+All four services can run on local Kubernetes with 3 replicas each, a HorizontalPodAutoscaler (3→6 pods), and NodePort access on `localhost`.
+
+### Prerequisites
+
+1. Open **Docker Desktop → Settings → Kubernetes** → enable Kubernetes → Apply & Restart.
+2. Install the metrics-server (required for HPA):
+
+```bash
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+# patch for Docker Desktop (no TLS)
+kubectl patch deployment metrics-server -n kube-system \
+  --type=json \
+  -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+```
+
+3. Start the Docker Compose infrastructure (PostgreSQL + LocalStack) — pods reach it via `host.docker.internal`:
+
+```bash
+docker-compose up -d
+aws --endpoint-url=http://localhost:4566 sqs create-queue --queue-name order-created --region us-east-1
+```
+
+4. Run DB migrations once before the first deploy (or after resetting):
+
+```bash
+cd cart-service     && npm run typeorm:run-migrations && cd ..
+cd purchase-service && npm run typeorm:run-migrations && cd ..
+cd product-service  && npm run typeorm:run-migrations && cd ..
+```
+
+### Deploy Everything
+
+```bash
+bash k8s/deploy-all.sh
+```
+
+This builds all four Docker images locally, applies all manifests, and waits for rollouts to complete.
+
+### Per-service Deploy Scripts
+
+```bash
+bash k8s/cart-service/deploy.sh
+bash k8s/purchase-service/deploy.sh
+bash k8s/product-service/deploy.sh
+```
+
+### Endpoints After Deploy
+
+| Service          | NodePort URL           |
+| ---------------- | ---------------------- |
+| Frontend         | http://localhost:30004 |
+| Cart Service     | http://localhost:30001 |
+| Purchase Service | http://localhost:30002 |
+| Product Service  | http://localhost:30003 |
+
+### Architecture
+
+| Concern         | Detail                                                       |
+| --------------- | ------------------------------------------------------------ |
+| Replicas        | 3 min, 6 max (HPA scales on CPU ≥ 60% or memory ≥ 400Mi)     |
+| Image pull      | `imagePullPolicy: Never` — images built locally              |
+| Inter-service   | K8s DNS: `http://cart-service:3001`, etc. (same namespace)   |
+| External infra  | Pods reach Docker Compose via `host.docker.internal`         |
+| Cron leader     | `pg_try_advisory_xact_lock` — only one pod runs daily report |
+| Rolling updates | `maxSurge: 1, maxUnavailable: 0` — zero-downtime deploys     |
+
+### K8s File Layout
+
+```
+k8s/
+├── deploy-all.sh                # Build + deploy all services in one command
+├── cart-service/
+│   ├── configmap.yaml
+│   ├── secret.yaml
+│   ├── deployment.yaml
+│   ├── service.yaml             # NodePort 30001
+│   ├── hpa.yaml
+│   └── deploy.sh
+├── purchase-service/
+│   ├── configmap.yaml
+│   ├── secret.yaml
+│   ├── deployment.yaml
+│   ├── service.yaml             # NodePort 30002
+│   ├── hpa.yaml
+│   └── deploy.sh
+├── product-service/
+│   ├── configmap.yaml
+│   ├── secret.yaml
+│   ├── deployment.yaml
+│   ├── service.yaml             # NodePort 30003
+│   ├── hpa.yaml
+│   └── deploy.sh
+└── frontend/
+    ├── configmap.yaml           # K8s DNS service URLs
+    ├── deployment.yaml
+    ├── service.yaml             # NodePort 30004
+    └── hpa.yaml
+```
+
+---
+
 ## Tech Stack
 
-| Layer        | Technology                                       |
-| ------------ | ------------------------------------------------ |
-| Backend      | NestJS 10, Fastify, TypeORM 0.3                  |
-| Database     | PostgreSQL 15                                    |
-| Message Bus  | AWS SQS via LocalStack                           |
-| Frontend     | Next.js 14, React 18, Redux Toolkit              |
-| Styling      | Tailwind CSS 3                                   |
-| DevOps       | Docker, Docker Compose                           |
-| Code Quality | ESLint, Prettier, Husky, lint-staged, commitlint |
+| Layer        | Technology                                          |
+| ------------ | --------------------------------------------------- |
+| Backend      | NestJS 10, Fastify, TypeORM 0.3                     |
+| Database     | PostgreSQL 15                                       |
+| Message Bus  | AWS SQS via LocalStack                              |
+| Frontend     | Next.js 14, React 18, Redux Toolkit                 |
+| Styling      | Tailwind CSS 3                                      |
+| DevOps       | Docker, Docker Compose, Kubernetes (Docker Desktop) |
+| Code Quality | ESLint, Prettier, Husky, lint-staged, commitlint    |

@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: purchase-service
+  namespace: message-queue
+  labels:
+    app: purchase-service
+spec:
+  # ── 3 replicas minimum ────────────────────────────────────────
+  # All pods run the SQS consumer (safe — SQS delivers each message once).
+  # Only ONE pod runs the daily cron (leader election via PostgreSQL advisory lock).
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: purchase-service
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1 # one extra pod during rollout
+      maxUnavailable: 1 # at most one pod down during rollout
+
+  template:
+    metadata:
+      labels:
+        app: purchase-service
+    spec:
+      # ── Spread pods across nodes for HA ──────────────────────
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: purchase-service
+
+      # host.docker.internal resolves automatically in Docker Desktop pods.
+      # No hostAliases needed on macOS/Windows Docker Desktop.
+      containers:
+        - name: purchase-service
+          # Build locally: docker build -t purchase-service:latest ./purchase-service
+          image: purchase-service:latest
+          imagePullPolicy: Never # use local image (Docker Desktop)
+
+          ports:
+            - containerPort: 3002
+              name: http
+
+          # ── Environment: non-secret ─────────────────────────
+          envFrom:
+            - configMapRef:
+                name: purchase-service-config
+
+          # ── Environment: secrets ─────────────────────────────
+          env:
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: purchase-service-secret
+                  key: DB_USERNAME
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: purchase-service-secret
+                  key: DB_PASSWORD
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: purchase-service-secret
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: purchase-service-secret
+                  key: AWS_SECRET_ACCESS_KEY
+
+          # ── Resource limits ──────────────────────────────────
+          resources:
+            requests:
+              cpu: '100m'
+              memory: '128Mi'
+            limits:
+              cpu: '500m'
+              memory: '512Mi'
+
+          # ── Probes ───────────────────────────────────────────
+          # Readiness: pod receives traffic only when this passes
+          readinessProbe:
+            httpGet:
+              path: /purchases
+              port: 3002
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+
+          # Liveness: restart pod if it hangs
+          livenessProbe:
+            httpGet:
+              path: /purchases
+              port: 3002
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 3
+
+          # Startup: give the app time to run migrations on first boot
+          startupProbe:
+            httpGet:
+              path: /purchases
+              port: 3002
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 12 # up to 60s (12 × 5s) before giving up

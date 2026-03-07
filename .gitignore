@@ -18,6 +18,9 @@ frontend/.next/
 frontend/out/
 frontend/next-env.d.ts
 
+# ─── Kubernetes secrets ───────────────────────────────────────────────────────
+k8s/*/secret.yaml
+
 # ─── Environment variables ───────────────────────────────────────
 **/.env
 **/.env.*
