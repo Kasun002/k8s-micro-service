@@ -8,7 +8,9 @@ metadata:
 spec:
   # ── 3 replicas minimum ────────────────────────────────────────
   # All pods run the SQS consumer (safe — SQS delivers each message once).
-  # Only ONE pod runs the daily cron (leader election via PostgreSQL advisory lock).
+  # The daily cron is handled by a separate K8s CronJob (cronjob.yaml) — NOT
+  # by these pods. concurrencyPolicy: Forbid on the CronJob ensures only one
+  # pod ever runs the report at a time with zero application-level locking.
   replicas: 3
 
   selector:
