@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Purchase } from '../purchase/purchase.entity';
 
 export interface TopProduct {
@@ -20,10 +19,6 @@ export interface DailySalesReport {
   topProducts: TopProduct[];
 }
 
-// Fixed advisory lock key — all pods use the same integer.
-// Only one pod can hold this transaction-level lock at a time.
-const CRON_LOCK_KEY = 8823001;
-
 @Injectable()
 export class ReportsService {
   private readonly logger = new Logger(ReportsService.name);
@@ -31,59 +26,28 @@ export class ReportsService {
   constructor(
     @InjectRepository(Purchase)
     private purchaseRepository: Repository<Purchase>,
-    private dataSource: DataSource,
   ) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, { name: 'daily-sales-report' })
-  async runDailyReport() {
-    // ── Leader election via PostgreSQL advisory lock ─────────────────────────
-    // pg_try_advisory_xact_lock:
-    //   - Non-blocking: returns true (leader) or false (follower) immediately
-    //   - Transaction-level: lock auto-releases when the transaction ends
-    //   - Safe with connection pools: QueryRunner pins one connection
-    // Only the pod that acquires the lock runs the report. All others skip.
-    // ────────────────────────────────────────────────────────────────────────
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+  // Called directly by the K8s CronJob entrypoint (src/cron/daily-report.ts).
+  // In development, trigger via: npm run cron:run
+  async runDailyReport(): Promise<void> {
+    this.logger.log('[Cron] Running daily report');
+    const report = await this.buildReport(new Date());
 
-    try {
-      const [{ acquired }] = await queryRunner.query(
-        'SELECT pg_try_advisory_xact_lock($1) AS acquired',
-        [CRON_LOCK_KEY],
+    this.logger.log('========== DAILY SALES REPORT ==========');
+    this.logger.log(`Date            : ${report.date}`);
+    this.logger.log(`Total Orders    : ${report.totalOrders}`);
+    this.logger.log(`Total Revenue   : $${report.totalRevenue.toFixed(2)}`);
+    this.logger.log(`Confirmed       : ${report.confirmedOrders}`);
+    this.logger.log(`Pending         : ${report.pendingOrders}`);
+    this.logger.log(`Unique Customers: ${report.uniqueCustomers}`);
+    this.logger.log('Top Products:');
+    report.topProducts.forEach((p, i) => {
+      this.logger.log(
+        `  ${i + 1}. ${p.sku} — qty: ${p.quantitySold}, revenue: $${p.revenue.toFixed(2)}`,
       );
-
-      if (!acquired) {
-        this.logger.log(`[Cron] Not leader — skipping daily report on this pod`);
-        await queryRunner.rollbackTransaction();
-        return;
-      }
-
-      this.logger.log(`[Cron] Leader elected — running daily report`);
-      const report = await this.buildReport(new Date());
-
-      this.logger.log('========== DAILY SALES REPORT ==========');
-      this.logger.log(`Date            : ${report.date}`);
-      this.logger.log(`Total Orders    : ${report.totalOrders}`);
-      this.logger.log(`Total Revenue   : $${report.totalRevenue.toFixed(2)}`);
-      this.logger.log(`Confirmed       : ${report.confirmedOrders}`);
-      this.logger.log(`Pending         : ${report.pendingOrders}`);
-      this.logger.log(`Unique Customers: ${report.uniqueCustomers}`);
-      this.logger.log('Top Products:');
-      report.topProducts.forEach((p, i) => {
-        this.logger.log(
-          `  ${i + 1}. ${p.sku} — qty: ${p.quantitySold}, revenue: $${p.revenue.toFixed(2)}`,
-        );
-      });
-      this.logger.log('========================================');
-
-      await queryRunner.commitTransaction(); // advisory lock auto-released here
-    } catch (err) {
-      await queryRunner.rollbackTransaction();
-      this.logger.error(`[Cron] Daily report failed: ${err.message}`);
-    } finally {
-      await queryRunner.release();
-    }
+    });
+    this.logger.log('========================================');
   }
 
   async buildReport(date: Date): Promise<DailySalesReport> {

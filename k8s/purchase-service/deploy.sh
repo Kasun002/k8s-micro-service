@@ -25,6 +25,9 @@ kubectl apply -f k8s/purchase-service/service.yaml
 echo "==> Applying HPA..."
 kubectl apply -f k8s/purchase-service/hpa.yaml
 
+echo "==> Applying CronJob..."
+kubectl apply -f k8s/purchase-service/cronjob.yaml
+
 echo ""
 echo "==> Waiting for pods to be ready (timeout 120s)..."
 kubectl rollout status deployment/purchase-service -n message-queue --timeout=120s
@@ -38,7 +41,14 @@ echo "==> Service:"
 kubectl get svc -n message-queue
 
 echo ""
+echo "==> CronJob:"
+kubectl get cronjob -n message-queue
+
+echo ""
 echo "✓ Done. Purchase service available at http://localhost:30002"
 echo "  curl http://localhost:30002/purchases"
 echo "  curl http://localhost:30002/admin/queue"
 echo "  curl http://localhost:30002/reports/daily"
+echo ""
+echo "  To trigger the daily report manually:"
+echo "  kubectl create job --from=cronjob/purchase-daily-report manual-test -n message-queue"

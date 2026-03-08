@@ -15,6 +15,7 @@
     "typeorm:generate-migration": "npm run typeorm -- migration:generate src/migrations/migration",
     "typeorm:run-migrations": "npm run typeorm -- migration:run",
     "typeorm:revert-migration": "npm run typeorm -- migration:revert",
+    "cron:run": "ts-node -r tsconfig-paths/register src/cron/daily-report.ts",
     "lint": "eslint 'src/**/*.ts'",
     "lint:fix": "eslint --fix 'src/**/*.ts'"
   },

@@ -73,7 +73,11 @@ kubectl apply -f "$ROOT/k8s/product-service/hpa.yaml"
 kubectl apply -f "$ROOT/k8s/frontend/hpa.yaml"
 
 echo ""
-echo "── Step 10: Wait for rollouts ───────────"
+echo "── Step 10: Apply CronJobs ──────────────"
+kubectl apply -f "$ROOT/k8s/purchase-service/cronjob.yaml"
+
+echo ""
+echo "── Step 11: Wait for rollouts ───────────"
 kubectl rollout status deployment/cart-service     -n message-queue --timeout=120s
 kubectl rollout status deployment/purchase-service -n message-queue --timeout=120s
 kubectl rollout status deployment/product-service  -n message-queue --timeout=120s
@@ -89,6 +93,9 @@ kubectl get svc -n message-queue
 echo ""
 echo " HPAs:"
 kubectl get hpa -n message-queue
+echo ""
+echo " CronJobs:"
+kubectl get cronjob -n message-queue
 echo "========================================"
 echo ""
 echo " Endpoints:"
@@ -102,3 +109,6 @@ echo "   open http://localhost:30004"
 echo "   curl http://localhost:30003/products"
 echo "   curl http://localhost:30001/cart/user1"
 echo "   curl http://localhost:30002/admin/queue"
+echo ""
+echo " Trigger daily report manually:"
+echo "   kubectl create job --from=cronjob/purchase-daily-report manual-test -n message-queue"

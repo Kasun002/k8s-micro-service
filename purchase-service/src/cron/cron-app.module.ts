@@ -1,13 +1,14 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { PurchaseModule } from './purchase/purchase.module';
-import { SqsModule } from './sqs/sqs.module';
-import { AdminModule } from './admin/admin.module';
-import { ReportsModule } from './reports/reports.module';
-import { Purchase } from './purchase/purchase.entity';
-import { Migration1772848724527 } from './migrations/1772848724527-migration';
+import { Purchase } from '../purchase/purchase.entity';
+import { Migration1772848724527 } from '../migrations/1772848724527-migration';
+import { ReportsModule } from '../reports/reports.module';
 
+// Minimal NestJS application context used exclusively by the K8s CronJob pod.
+// It only wires up what runDailyReport() needs: DB connection + ReportsModule.
+// migrationsRun is false — the main service Deployment already runs migrations
+// before this CronJob pod is ever scheduled.
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -22,20 +23,12 @@ import { Migration1772848724527 } from './migrations/1772848724527-migration';
         database: configService.get<string>('DB_NAME'),
         entities: [Purchase],
         migrations: [Migration1772848724527],
-        migrationsRun: true,
+        migrationsRun: false,
         synchronize: false,
-        extra: {
-          max: 10,
-          min: 2,
-          idleTimeoutMillis: 30000,
-        },
       }),
       inject: [ConfigService],
     }),
-    PurchaseModule,
-    SqsModule,
-    AdminModule,
     ReportsModule,
   ],
 })
-export class AppModule {}
+export class CronAppModule {}
